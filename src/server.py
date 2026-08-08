@@ -1,17 +1,26 @@
-from fastapi import FastAPI
-from pydantic import BaseModel
-import json
+from email import message
 
-class User(BaseModel):
-    id: int
-    firstName: str
-    maidenName: str
-    lastName: str
+from fastapi import FastAPI, HTTPException, Request
+from pydantic import BaseModel
+from src.User.UserModel import UserModel as User
+import json
+from fastapi.responses import JSONResponse
+from src.routes.api_router import mainRouter
 
 with open('DummyUser.json') as f:
     DummyUser = json.load(f)
-app = FastAPI()
+app = FastAPI(title="Application API",
+    version="1.0.0")
 
+app.include_router(mainRouter)  # Include the agents router
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "errors": [exc.detail]
+        }
+    )
 @app.get("/")
 async def read_root():
     return {"success": True, "message": "Hello, World with github!"}
@@ -35,7 +44,11 @@ async def getUserById(user_id: int):
   for user in DummyUser[ "users" ]:
     if user["id"] == user_id:
       return {"success": True, "message": "Get user by id", "user": user}
-  return {"success": False, "message": "User not found"}
+  raise HTTPException(status_code=404, detail={
+    "code": "User not found",
+    "message": f"User with id {user_id} not found",
+    "field": "user_id"
+  })
 
 @app.post("/user/create")
 async def createUser(user: User):
